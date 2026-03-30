@@ -1,10 +1,10 @@
-# Local / generated
-.idea/
-.DS_Store
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.env
-.env.*
+# ML artefacts
+ml/models/*.pkl
+ml/models/.hf_cache/
 
+evidence/
+
+# Rails app not tracked in this history (other ~50% of codebase)
+/diabetes_app/
+
+.claude/
