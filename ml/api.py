@@ -1,26 +1,26 @@
-    except FileNotFoundError as e:
-        log.error(
-            f"Model artefacts not found ({e}). "
-            "Run `python ml/train_model.py` first."
-        )
+def predict():
+    if model is None:
+        return jsonify({"error": "Model not loaded. Run training script first."}), 503
 
+    data = request.get_json(force=True)
 
-load_artefacts()
+    # Validate input
+    missing = [f for f in FEATURES if f not in data]
+    if missing:
+        return jsonify({"error": f"Missing fields: {missing}"}), 400
 
+    try:
+        raw = np.array([[float(data[f]) for f in FEATURES]])
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": f"Invalid input: {e}"}), 400
 
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({
-        "status":       "ok",
-        "model_loaded": model is not None,
-        "model_name":   meta.get("model_name", "none"),
-        "auc":          meta.get("auc", 0),
-    })
+    # Scale
+    X_scaled = scaler.transform(raw)
 
+    # Predict
+    proba      = model.predict_proba(X_scaled)[0]
+    pred       = int(np.argmax(proba))
+    confidence = float(proba[pred])
 
-@app.route("/model_info", methods=["GET"])
-def model_info():
-    return jsonify(meta)
-
-
-@app.route("/predict", methods=["POST"])
+    # SHAP values
+    try:
