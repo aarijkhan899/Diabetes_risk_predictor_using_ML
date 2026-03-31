@@ -1,26 +1,26 @@
-def predict():
-    if model is None:
-        return jsonify({"error": "Model not loaded. Run training script first."}), 503
+        shap_values = explainer.shap_values(X_scaled)
+        # For binary classifiers, shap_values may be list[2 arrays]
+        if isinstance(shap_values, list):
+            sv = shap_values[1][0].tolist()   # positive class
+        else:
+            sv = shap_values[0].tolist()
+        shap_dict = dict(zip(FEATURES, sv))
+    except Exception as e:
+        log.warning(f"SHAP computation failed: {e}")
+        shap_dict = {}
 
-    data = request.get_json(force=True)
-
-    # Validate input
-    missing = [f for f in FEATURES if f not in data]
-    if missing:
-        return jsonify({"error": f"Missing fields: {missing}"}), 400
-
-    try:
-        raw = np.array([[float(data[f]) for f in FEATURES]])
-    except (ValueError, TypeError) as e:
-        return jsonify({"error": f"Invalid input: {e}"}), 400
-
-    # Scale
-    X_scaled = scaler.transform(raw)
-
-    # Predict
-    proba      = model.predict_proba(X_scaled)[0]
-    pred       = int(np.argmax(proba))
-    confidence = float(proba[pred])
-
-    # SHAP values
-    try:
+    # Plain-language guidance
+    label = "Diabetic" if pred == 1 else "Non-Diabetic"
+    if pred == 1:
+        top_feature = (
+            max(shap_dict, key=lambda k: abs(shap_dict[k]))
+            if shap_dict else "Glucose"
+        )
+        guidance = (
+            f"This patient presents elevated diabetes risk. "
+            f"The most influential clinical factor is {top_feature}. "
+            "Immediate clinical review is recommended."
+        )
+    else:
+        guidance = (
+            "This patient currently shows low diabetes risk based on available "
