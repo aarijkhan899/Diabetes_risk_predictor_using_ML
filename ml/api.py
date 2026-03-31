@@ -1,26 +1,26 @@
-FEATURES = [
-    "Pregnancies", "Glucose", "BloodPressure",
-    "SkinThickness", "Insulin", "BMI",
-    "DiabetesPedigreeFunction", "Age"
-]
-
-# Load artefacts at startup
-model, scaler, meta, explainer = None, None, {}, None
+    except FileNotFoundError as e:
+        log.error(
+            f"Model artefacts not found ({e}). "
+            "Run `python ml/train_model.py` first."
+        )
 
 
-def load_artefacts():
-    global model, scaler, meta, explainer
-    try:
-        model  = joblib.load(MODEL_PATH)
-        scaler = joblib.load(SCALER_PATH)
-        with open(META_PATH) as fh:
-            meta = json.load(fh)
-        # Build SHAP explainer (TreeExplainer for tree models, KernelExplainer otherwise)
-        model_name = meta.get("model_name", "")
-        if model_name in ("RandomForest", "XGBoost", "LightGBM"):
-            explainer = shap.TreeExplainer(model)
-        else:
-            # Use a small background sample for speed
-            bg = np.zeros((50, len(FEATURES)))
-            explainer = shap.KernelExplainer(model.predict_proba, bg)
-        log.info(f"Loaded model: {model_name}  AUC={meta.get('auc')}")
+load_artefacts()
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status":       "ok",
+        "model_loaded": model is not None,
+        "model_name":   meta.get("model_name", "none"),
+        "auc":          meta.get("auc", 0),
+    })
+
+
+@app.route("/model_info", methods=["GET"])
+def model_info():
+    return jsonify(meta)
+
+
+@app.route("/predict", methods=["POST"])
