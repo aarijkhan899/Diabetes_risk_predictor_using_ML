@@ -1,26 +1,26 @@
-        shap_values = explainer.shap_values(X_scaled)
-        # For binary classifiers, shap_values may be list[2 arrays]
-        if isinstance(shap_values, list):
-            sv = shap_values[1][0].tolist()   # positive class
-        else:
-            sv = shap_values[0].tolist()
-        shap_dict = dict(zip(FEATURES, sv))
-    except Exception as e:
-        log.warning(f"SHAP computation failed: {e}")
-        shap_dict = {}
+            "clinical markers. Continue routine preventive health monitoring."
+        )
 
-    # Plain-language guidance
-    label = "Diabetic" if pred == 1 else "Non-Diabetic"
-    if pred == 1:
-        top_feature = (
-            max(shap_dict, key=lambda k: abs(shap_dict[k]))
-            if shap_dict else "Glucose"
+    return jsonify({
+        "prediction":   pred,
+        "label":        label,
+        "confidence":   round(confidence * 100, 2),
+        "probabilities": {
+            "non_diabetic": round(float(proba[0]) * 100, 2),
+            "diabetic":     round(float(proba[1]) * 100, 2),
+        },
+        "shap_values":  shap_dict,
+        "guidance":     guidance,
+        "model_used":   meta.get("model_name", "unknown"),
+        "disclaimer": (
+            "This tool is a decision-support aid only. "
+            "It is not a diagnostic instrument. "
+            "Clinician oversight is mandatory before any patient-facing action. "
+            "Model trained on Pima Indian female population only."
         )
-        guidance = (
-            f"This patient presents elevated diabetes risk. "
-            f"The most influential clinical factor is {top_feature}. "
-            "Immediate clinical review is recommended."
-        )
-    else:
-        guidance = (
-            "This patient currently shows low diabetes risk based on available "
+    })
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("ML_API_PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)
