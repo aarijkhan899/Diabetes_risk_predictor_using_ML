@@ -1,31 +1,31 @@
-#!/usr/bin/env python3
-"""
-Diabetes Risk Predictor - Model Training Script
-Trains multiple classifiers on the Pima Indians Diabetes Dataset,
-selects the best by AUC-ROC, and saves it. Falls back to a
-pre-trained model download if local training underperforms.
-"""
+from imblearn.over_sampling import SMOTE
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
 
-import os
-import sys
-import json
-import joblib
-import logging
-import warnings
-import numpy as np
-import pandas as pd
-import requests
+# -- Success thresholds (from dissertation proposal) --------------------------
+AUC_THRESHOLD    = 0.85
+F1_THRESHOLD     = 0.80
+RECALL_THRESHOLD = 0.78
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
+os.makedirs(MODELS_DIR, exist_ok=True)
 
-warnings.filterwarnings("ignore")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-log = logging.getLogger(__name__)
+# -- Column names for the raw CSV fallback ------------------------------------
+COLUMNS = [
+    "Pregnancies", "Glucose", "BloodPressure", "SkinThickness",
+    "Insulin", "BMI", "DiabetesPedigreeFunction", "Age", "Outcome"
+]
+FEATURES = COLUMNS[:-1]
+TARGET   = "Outcome"
+# Columns where 0 is biologically invalid -> replace with NaN then impute
+ZERO_INVALID_COLS = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
-from sklearn.metrics import (
-    accuracy_score, f1_score, precision_score,
-    recall_score, roc_auc_score, classification_report
-)
+
+def load_dataset() -> pd.DataFrame:
+    """Load Pima Indians Diabetes Dataset via ucimlrepo or CSV fallback."""
+    log.info("Attempting to load dataset via ucimlrepo ...")
+    try:
+        from ucimlrepo import fetch_ucirepo
+        dataset = fetch_ucirepo(id=34)
+        X = dataset.data.features
+        y = dataset.data.targets
+        # targets may be Series or DataFrame
