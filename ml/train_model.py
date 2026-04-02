@@ -1,31 +1,31 @@
+    meta_path   = os.path.join(MODELS_DIR, "model_meta.json")
 
+    joblib.dump(best["model"], model_path)
+    joblib.dump(scaler, scaler_path)
 
-def evaluate_and_save(results, scaler, X_raw, y_raw):
-    """
-    Pick the best model that meets dissertation success criteria.
-    If none meet the thresholds, fall back to downloading a pre-trained model.
-    """
-    # Find best model meeting all thresholds
-    best = None
-    for r in results:
-        if (r["auc"] >= AUC_THRESHOLD and
-                r["f1"] >= F1_THRESHOLD and
-                r["recall"] >= RECALL_THRESHOLD):
-            best = r
-            break
+    meta = {
+        "model_name":    best["name"],
+        "auc":           round(best["auc"], 4),
+        "f1":            round(best["f1"], 4),
+        "recall":        round(best["recall"], 4),
+        "accuracy":      round(best["accuracy"], 4),
+        "precision":     round(best["precision"], 4),
+        "features":      FEATURES,
+        "best_params":   best.get("best_params", {}),
+        "fallback_used": best.get("fallback_used", False),
+    }
+    with open(meta_path, "w") as fh:
+        json.dump(meta, fh, indent=2)
 
-    if best is None:
-        log.warning(
-            "No locally trained model met all success thresholds. "
-            "Falling back to pre-trained model download ..."
-        )
-        best = pull_pretrained_model(scaler, results[0])
-    else:
-        log.info(
-            f"Best model: {best['name']}  AUC={best['auc']:.4f}  "
-            f"F1={best['f1']:.4f}  Recall={best['recall']:.4f}"
-        )
+    log.info(f"Saved model  -> {model_path}")
+    log.info(f"Saved scaler -> {scaler_path}")
+    log.info(f"Saved meta   -> {meta_path}")
 
-    # Persist artefacts
-    model_path  = os.path.join(MODELS_DIR, "best_model.pkl")
-    scaler_path = os.path.join(MODELS_DIR, "scaler.pkl")
+    # Print full classification report on raw (unsmoted) test split
+    from sklearn.model_selection import train_test_split
+    X_tr, X_te, y_tr, y_te = train_test_split(
+        X_raw, y_raw, test_size=0.2, random_state=42, stratify=y_raw
+    )
+    y_pred_te = best["model"].predict(X_te)
+    log.info("Classification report on held-out 20%% test set:\n" +
+             classification_report(y_te, y_pred_te,
