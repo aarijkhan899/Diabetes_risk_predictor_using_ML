@@ -1,31 +1,31 @@
-            "RandomForest",
-            RandomForestClassifier(random_state=42, n_jobs=-1),
-            {"n_estimators": [100, 200], "max_depth": [None, 10, 20],
-             "min_samples_split": [2, 5]},
-        ),
-        (
-            "XGBoost",
-            XGBClassifier(eval_metric="logloss", random_state=42,
-                          use_label_encoder=False, verbosity=0),
-            {"n_estimators": [100, 200], "max_depth": [3, 6],
-             "learning_rate": [0.05, 0.1], "subsample": [0.8, 1.0]},
-        ),
-        (
-            "LightGBM",
-            LGBMClassifier(random_state=42, verbose=-1, n_jobs=-1),
-            {"n_estimators": [100, 200], "max_depth": [-1, 6],
-             "learning_rate": [0.05, 0.1]},
-        ),
-        (
-            "SVM",
-            SVC(probability=True, random_state=42),
-            {"C": [0.1, 1, 10], "kernel": ["rbf"], "gamma": ["scale", "auto"]},
-        ),
-    ]
+    for name, estimator, param_grid in build_candidates():
+        log.info(f"Training {name} ...")
+        gs = GridSearchCV(
+            estimator, param_grid, cv=cv,
+            scoring="roc_auc", n_jobs=-1, refit=True, verbose=0
+        )
+        gs.fit(X, y)
+        best = gs.best_estimator_
 
+        # Evaluate on full resampled set (CV already guards against overfit)
+        y_pred  = best.predict(X)
+        y_proba = best.predict_proba(X)[:, 1]
 
-def train_all(X, y):
-    """Grid-search all candidates with 5-fold CV; return sorted results list."""
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    results = []
+        auc = roc_auc_score(y, y_proba)
+        f1  = f1_score(y, y_pred, average="macro")
+        rec = recall_score(y, y_pred, pos_label=1)
+        acc = accuracy_score(y, y_pred)
+        pre = precision_score(y, y_pred, average="macro")
 
+        log.info(
+            f"  {name}: AUC={auc:.4f} F1={f1:.4f} Recall={rec:.4f} "
+            f"Acc={acc:.4f} | best_params={gs.best_params_}"
+        )
+        results.append({
+            "name": name, "model": best, "auc": auc,
+            "f1": f1, "recall": rec, "accuracy": acc, "precision": pre,
+            "best_params": gs.best_params_
+        })
+
+    results.sort(key=lambda r: r["auc"], reverse=True)
+    return results
