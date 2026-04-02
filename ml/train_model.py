@@ -1,31 +1,31 @@
-    meta_path   = os.path.join(MODELS_DIR, "model_meta.json")
+                                   target_names=["Non-Diabetic", "Diabetic"]))
+    return best
 
-    joblib.dump(best["model"], model_path)
-    joblib.dump(scaler, scaler_path)
 
-    meta = {
-        "model_name":    best["name"],
-        "auc":           round(best["auc"], 4),
-        "f1":            round(best["f1"], 4),
-        "recall":        round(best["recall"], 4),
-        "accuracy":      round(best["accuracy"], 4),
-        "precision":     round(best["precision"], 4),
-        "features":      FEATURES,
-        "best_params":   best.get("best_params", {}),
-        "fallback_used": best.get("fallback_used", False),
-    }
-    with open(meta_path, "w") as fh:
-        json.dump(meta, fh, indent=2)
+def pull_pretrained_model(scaler, local_best):
+    """
+    Fallback: attempt to load a pre-trained model artefact.
 
-    log.info(f"Saved model  -> {model_path}")
-    log.info(f"Saved scaler -> {scaler_path}")
-    log.info(f"Saved meta   -> {meta_path}")
+    Strategy (in order):
+      1. If a cached best_model_pretrained.pkl exists locally, load it.
+      2. Try to download from a known public URL (GitHub Releases / Hugging Face).
+      3. If both fail, log a warning and return the best locally-trained model
+         (even if it misses thresholds) so the app remains functional.
+    """
+    cached_path = os.path.join(MODELS_DIR, "best_model_pretrained.pkl")
 
-    # Print full classification report on raw (unsmoted) test split
-    from sklearn.model_selection import train_test_split
-    X_tr, X_te, y_tr, y_te = train_test_split(
-        X_raw, y_raw, test_size=0.2, random_state=42, stratify=y_raw
-    )
-    y_pred_te = best["model"].predict(X_te)
-    log.info("Classification report on held-out 20%% test set:\n" +
-             classification_report(y_te, y_pred_te,
+    # 1. Local cache
+    if os.path.exists(cached_path):
+        log.info(f"Loading cached pre-trained model from {cached_path}")
+        model = joblib.load(cached_path)
+        return {
+            "name":      "PreTrained_Cached",
+            "model":     model,
+            "auc":       0.0, "f1": 0.0, "recall": 0.0,
+            "accuracy":  0.0, "precision": 0.0,
+            "best_params": {},
+            "fallback_used": True,
+        }
+
+    # 2. Remote download
+    # Replace this URL with a real hosted model if available
