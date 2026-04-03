@@ -1,45 +1,44 @@
-#!/usr/bin/env python3
-"""
-Diabetes Risk Predictor — Evidence Generation Pipeline
-=======================================================
-Dissertation: Md Aariz | MSc Big Data Technologies | UEL | CN7000
-Supervisor:   Dr Mohamed Chahine Ghanem
 
-This script:
-  1. Loads the Pima Indians Diabetes Dataset (UCI ML Repository)
-  2. Applies the full preprocessing pipeline (imputation, scaling, SMOTE)
-  3. Attempts to pull a pre-trained model from HuggingFace Hub (token-authenticated)
-  4. Falls back to locally training all 5 classifiers with grid-search CV
-  5. Selects XGBoost as best model (highest AUC) and saves artefacts
-  6. Generates comprehensive evidence artefacts to /evidence/:
-       confusion_matrix_training.png
-       confusion_matrix_test.png
-       roc_curve.png
-       precision_recall_curve.png
-       feature_importance.png
-       model_comparison.png
-       cross_validation_scores.png
-       classification_report.txt
-       training_metrics.json
-"""
-
-import os
-import sys
-import json
-import warnings
-import logging
-import numpy as np
-import pandas as pd
-import joblib
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
-warnings.filterwarnings("ignore")
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)s  %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import (
+    StratifiedKFold, GridSearchCV, train_test_split, cross_val_score
 )
-log = logging.getLogger(__name__)
+from sklearn.metrics import (
+    accuracy_score, f1_score, precision_score, recall_score,
+    roc_auc_score, classification_report, confusion_matrix,
+    roc_curve, auc, precision_recall_curve, average_precision_score,
+)
+from imblearn.over_sampling import SMOTE
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR   = os.path.join(SCRIPT_DIR, "models")
+EVIDENCE_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "evidence")
+os.makedirs(MODELS_DIR, exist_ok=True)
+os.makedirs(EVIDENCE_DIR, exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# Dataset schema
+# ---------------------------------------------------------------------------
+COLUMNS = [
+    "Pregnancies", "Glucose", "BloodPressure", "SkinThickness",
+    "Insulin", "BMI", "DiabetesPedigreeFunction", "Age", "Outcome",
+]
+FEATURES            = COLUMNS[:-1]
+TARGET              = "Outcome"
+ZERO_INVALID_COLS   = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
+
+# HuggingFace token (set HUGGINGFACE_TOKEN in the environment; never commit secrets)
+HF_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+
+# Dissertation success thresholds
+AUC_THRESHOLD    = 0.85
+F1_THRESHOLD     = 0.80
+RECALL_THRESHOLD = 0.78
