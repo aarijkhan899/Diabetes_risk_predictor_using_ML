@@ -1,44 +1,44 @@
-ACC_TARGET       = 0.90   # ≥90% training accuracy target
+        log.warning(f"  HuggingFace download error: {e}")
+        return None, None
 
 
 # ===========================================================================
-# STEP 0 — HuggingFace pre-trained model attempt
+# STEP 1 — Dataset loading
 # ===========================================================================
-def try_download_hf_model():
-    """
-    Try to pull a pre-trained sklearn-compatible diabetes model from HF Hub.
-    Returns a loaded model on success, None on failure.
-    """
+def load_dataset() -> pd.DataFrame:
+    log.info("  Loading Pima Indians Diabetes Dataset via ucimlrepo ...")
     try:
-        from huggingface_hub import hf_hub_download, list_models
-        log.info("  Connecting to HuggingFace Hub (token-authenticated)...")
-
-        # Known HF repos that host a Pima diabetes sklearn pickle
-        candidates = [
-            ("Ilyabarigou/pima-diabetes-xgboost",     "xgb_model.pkl"),
-            ("scikit-learn/diabetes-prediction",        "model.pkl"),
-            ("Falah/Ghamizi-diabetes-prediction",       "model.pkl"),
-        ]
-
-        for repo_id, filename in candidates:
-            try:
-                log.info(f"  Trying {repo_id}/{filename} ...")
-                path = hf_hub_download(
-                    repo_id=repo_id,
-                    filename=filename,
-                    token=HF_TOKEN,
-                    cache_dir=os.path.join(MODELS_DIR, ".hf_cache"),
-                )
-                model = joblib.load(path)
-                log.info(f"  Pre-trained model loaded from HuggingFace: {repo_id}")
-                return model, repo_id
-            except Exception:
-                continue
-
-        log.warning("  No compatible HuggingFace model found; falling back to local training.")
-        return None, None
-
-    except ImportError:
-        log.warning("  huggingface_hub not installed; skipping HF download.")
-        return None, None
+        from ucimlrepo import fetch_ucirepo
+        ds = fetch_ucirepo(id=34)
+        X  = ds.data.features
+        y  = ds.data.targets
+        if hasattr(y, "iloc"):
+            y = y.iloc[:, 0] if y.ndim > 1 else y
+        df = pd.concat([X.reset_index(drop=True), y.reset_index(drop=True)], axis=1)
+        df.columns = COLUMNS
+        log.info(f"  Loaded via ucimlrepo: {df.shape}")
+        return df
     except Exception as e:
+        log.warning(f"  ucimlrepo failed ({e}); trying CSV fallback ...")
+
+    csv_url = (
+        "https://raw.githubusercontent.com/jbrownlee/Datasets/"
+        "master/pima-indians-diabetes.csv"
+    )
+    df = pd.read_csv(csv_url, header=None, names=COLUMNS)
+    log.info(f"  Loaded from CSV fallback: {df.shape}")
+    return df
+
+
+# ===========================================================================
+# STEP 2 — Preprocessing
+# ===========================================================================
+def preprocess(df: pd.DataFrame):
+    """
+    Leak-free preprocessing pipeline:
+      1. Impute biologically invalid zeros with column medians
+      2. Stratified 80/20 train-test split  (split BEFORE scaling/SMOTE)
+      3. Fit StandardScaler on train only; transform both splits
+      4. Apply SMOTE to training split only
+    Returns (X_train_res, y_train_res, X_test, y_test, scaler)
+    """
