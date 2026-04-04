@@ -1,44 +1,44 @@
-        log.warning(f"  HuggingFace download error: {e}")
-        return None, None
+    df = df.copy()
 
+    # Replace biologically invalid zeros
+    df[ZERO_INVALID_COLS] = df[ZERO_INVALID_COLS].replace(0, np.nan)
+    for col in ZERO_INVALID_COLS:
+        median = df[col].median()
+        df[col].fillna(median, inplace=True)
+        log.info(f"    Imputed {col} zeros → median = {median:.2f}")
 
-# ===========================================================================
-# STEP 1 — Dataset loading
-# ===========================================================================
-def load_dataset() -> pd.DataFrame:
-    log.info("  Loading Pima Indians Diabetes Dataset via ucimlrepo ...")
-    try:
-        from ucimlrepo import fetch_ucirepo
-        ds = fetch_ucirepo(id=34)
-        X  = ds.data.features
-        y  = ds.data.targets
-        if hasattr(y, "iloc"):
-            y = y.iloc[:, 0] if y.ndim > 1 else y
-        df = pd.concat([X.reset_index(drop=True), y.reset_index(drop=True)], axis=1)
-        df.columns = COLUMNS
-        log.info(f"  Loaded via ucimlrepo: {df.shape}")
-        return df
-    except Exception as e:
-        log.warning(f"  ucimlrepo failed ({e}); trying CSV fallback ...")
+    X_raw = df[FEATURES].values
+    y_raw = df[TARGET].values
 
-    csv_url = (
-        "https://raw.githubusercontent.com/jbrownlee/Datasets/"
-        "master/pima-indians-diabetes.csv"
+    # --- SPLIT FIRST (no leakage) ---
+    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        X_raw, y_raw, test_size=0.20, random_state=42, stratify=y_raw
     )
-    df = pd.read_csv(csv_url, header=None, names=COLUMNS)
-    log.info(f"  Loaded from CSV fallback: {df.shape}")
-    return df
+    log.info(f"  Train/test split: {X_train_raw.shape} / {X_test_raw.shape}")
+
+    # --- Scale on TRAIN only ---
+    scaler     = StandardScaler()
+    X_train_sc = scaler.fit_transform(X_train_raw)
+    X_test_sc  = scaler.transform(X_test_raw)
+
+    # --- SMOTE on TRAIN only ---
+    smote          = SMOTE(random_state=42)
+    X_res, y_res   = smote.fit_resample(X_train_sc, y_train)
+    log.info(f"  After SMOTE (train only): {np.bincount(y_res.astype(int))} (balanced)")
+
+    return X_res, y_res, X_test_sc, y_test, scaler
 
 
 # ===========================================================================
-# STEP 2 — Preprocessing
+# STEP 3 — Local model training
 # ===========================================================================
-def preprocess(df: pd.DataFrame):
-    """
-    Leak-free preprocessing pipeline:
-      1. Impute biologically invalid zeros with column medians
-      2. Stratified 80/20 train-test split  (split BEFORE scaling/SMOTE)
-      3. Fit StandardScaler on train only; transform both splits
-      4. Apply SMOTE to training split only
-    Returns (X_train_res, y_train_res, X_test, y_test, scaler)
-    """
+def _xgb_model():
+    """XGBoost with regularisation to prevent overfitting on small dataset."""
+    return XGBClassifier(
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=5,
+        gamma=0.1,
