@@ -1,44 +1,44 @@
-    df = df.copy()
-
-    # Replace biologically invalid zeros
-    df[ZERO_INVALID_COLS] = df[ZERO_INVALID_COLS].replace(0, np.nan)
-    for col in ZERO_INVALID_COLS:
-        median = df[col].median()
-        df[col].fillna(median, inplace=True)
-        log.info(f"    Imputed {col} zeros → median = {median:.2f}")
-
-    X_raw = df[FEATURES].values
-    y_raw = df[TARGET].values
-
-    # --- SPLIT FIRST (no leakage) ---
-    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
-        X_raw, y_raw, test_size=0.20, random_state=42, stratify=y_raw
+        reg_alpha=0.5,
+        reg_lambda=2.0,
+        eval_metric="logloss",
+        random_state=42,
+        verbosity=0,
     )
-    log.info(f"  Train/test split: {X_train_raw.shape} / {X_test_raw.shape}")
-
-    # --- Scale on TRAIN only ---
-    scaler     = StandardScaler()
-    X_train_sc = scaler.fit_transform(X_train_raw)
-    X_test_sc  = scaler.transform(X_test_raw)
-
-    # --- SMOTE on TRAIN only ---
-    smote          = SMOTE(random_state=42)
-    X_res, y_res   = smote.fit_resample(X_train_sc, y_train)
-    log.info(f"  After SMOTE (train only): {np.bincount(y_res.astype(int))} (balanced)")
-
-    return X_res, y_res, X_test_sc, y_test, scaler
 
 
-# ===========================================================================
-# STEP 3 — Local model training
-# ===========================================================================
-def _xgb_model():
-    """XGBoost with regularisation to prevent overfitting on small dataset."""
-    return XGBClassifier(
-        n_estimators=200,
-        max_depth=4,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        min_child_weight=5,
-        gamma=0.1,
+def _tune_xgb(X_res, y_res) -> XGBClassifier:
+    """Grid-search XGBoost with 5-fold stratified CV (same strategy as train_model.py)."""
+    log.info("    Grid-searching XGBoost hyperparameters (5-fold CV)...")
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    param_grid = {
+        "n_estimators":    [100, 200],
+        "max_depth":       [3, 4, 5],
+        "learning_rate":   [0.05, 0.1],
+        "subsample":       [0.8, 1.0],
+        "min_child_weight":[3, 5],
+    }
+    gs = GridSearchCV(
+        XGBClassifier(
+            colsample_bytree=0.8, gamma=0.1,
+            reg_alpha=0.5, reg_lambda=2.0,
+            eval_metric="logloss", random_state=42, verbosity=0,
+        ),
+        param_grid, cv=cv, scoring="roc_auc",
+        n_jobs=-1, refit=True, verbose=0,
+    )
+    gs.fit(X_res, y_res)
+    log.info(f"    Best CV AUC={gs.best_score_:.4f}  params={gs.best_params_}")
+    return gs.best_estimator_, gs.best_params_
+
+
+def train_all_models(X_res, y_res, X_test, y_test) -> dict:
+    """
+    Train all 5 dissertation classifiers on the SMOTE-balanced set.
+    XGBoost is tuned via GridSearchCV to maximise AUC.
+    Evaluate on the held-out 20 % test split.
+    """
+    log.info("    Training Logistic Regression ...")
+    lr = LogisticRegression(C=1.0, max_iter=1000, random_state=42)
+    lr.fit(X_res, y_res)
+
+    log.info("    Training Random Forest ...")
