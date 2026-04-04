@@ -1,44 +1,44 @@
-    rf = RandomForestClassifier(
-        n_estimators=200, max_depth=10, min_samples_split=5,
-        random_state=42, n_jobs=-1
-    )
-    rf.fit(X_res, y_res)
+            f"      {name:<22} Train={results[name]['train_accuracy']:.4f}  "
+            f"Test={results[name]['test_accuracy']:.4f}  "
+            f"AUC={results[name]['test_auc']:.4f}  "
+            f"F1={results[name]['test_f1']:.4f}"
+        )
 
-    log.info("    Training XGBoost (with hyperparameter tuning) ...")
-    xgb, xgb_params = _tune_xgb(X_res, y_res)
+    # Store best XGBoost params for metadata
+    results["XGBoost"]["best_params"] = xgb_params
+    return results
 
-    log.info("    Training LightGBM ...")
-    lgbm = LGBMClassifier(
-        n_estimators=200, max_depth=4, learning_rate=0.05,
-        min_child_samples=10, reg_alpha=0.5, random_state=42, verbose=-1
-    )
-    lgbm.fit(X_res, y_res)
 
-    log.info("    Training SVM ...")
-    svm = SVC(C=10, kernel="rbf", gamma="scale", probability=True, random_state=42)
-    svm.fit(X_res, y_res)
+# ===========================================================================
+# STEP 4 — Evidence artifact generation
+# ===========================================================================
+LABEL_NAMES = ["Non-Diabetic", "Diabetic"]
+BLUE_PALETTE = ["#1565C0", "#1976D2", "#1E88E5", "#42A5F5", "#90CAF9"]
 
-    candidates = {
-        "Logistic Regression": lr,
-        "Random Forest":        rf,
-        "XGBoost":              xgb,
-        "LightGBM":             lgbm,
-        "SVM":                  svm,
-    }
 
-    results = {}
-    for name, clf in candidates.items():
-        y_train_pred  = clf.predict(X_res)
-        y_test_pred   = clf.predict(X_test)
-        y_test_proba  = clf.predict_proba(X_test)[:, 1]
+def _save(fig, filename: str):
+    path = os.path.join(EVIDENCE_DIR, filename)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    log.info(f"  Saved → evidence/{filename}")
 
-        results[name] = {
-            "model":          clf,
-            "train_accuracy": accuracy_score(y_res, y_train_pred),
-            "test_accuracy":  accuracy_score(y_test, y_test_pred),
-            "test_auc":       roc_auc_score(y_test, y_test_proba),
-            "test_f1":        f1_score(y_test, y_test_pred, average="weighted"),
-            "test_recall":    recall_score(y_test, y_test_pred, pos_label=1),
-            "test_precision": precision_score(y_test, y_test_pred, average="weighted"),
-        }
-        log.info(
+
+def gen_confusion_matrix(cm, title: str, filename: str, accuracy: float):
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
+    plt.colorbar(im, ax=ax)
+
+    ticks = np.arange(len(LABEL_NAMES))
+    ax.set_xticks(ticks); ax.set_xticklabels(LABEL_NAMES, fontsize=12)
+    ax.set_yticks(ticks); ax.set_yticklabels(LABEL_NAMES, fontsize=12)
+
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(
+                j, i, format(cm[i, j], "d"),
+                ha="center", va="center", fontsize=15, fontweight="bold",
+                color="white" if cm[i, j] > thresh else "black",
+            )
+
+    ax.set_ylabel("True Label", fontsize=13)
