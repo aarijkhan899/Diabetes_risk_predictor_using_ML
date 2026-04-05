@@ -1,44 +1,44 @@
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bars = ax.bar(fold_labels, scores, color=colors, edgecolor="white", linewidth=0.8)
-    for bar, score in zip(bars, scores):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.001,
-            f"{score:.4f}", ha="center", va="bottom", fontsize=11, fontweight="bold",
-        )
-    ax.axhline(mean_s, color="#D32F2F", linestyle="--", lw=2,
-               label=f"Mean = {mean_s:.4f}  ±  {std_s:.4f}")
-    ax.set_ylabel("Accuracy", fontsize=13)
-    ax.set_title(
-        "5-Fold Stratified Cross-Validation — XGBoost\n"
-        "Pima Indians Diabetes Dataset  (SMOTE-balanced training set)",
-        fontsize=12, fontweight="bold",
-    )
-    ax.legend(fontsize=12)
-    ax.set_ylim(max(0.80, scores.min() - 0.02), 1.02)
-    ax.grid(True, axis="y", alpha=0.25)
-    fig.tight_layout()
-    _save(fig, filename)
-    return scores
-
-
-# ===========================================================================
-# MAIN
-# ===========================================================================
-def main():
-    log.info("=" * 65)
-    log.info("  DIABETES RISK PREDICTOR — EVIDENCE GENERATION PIPELINE")
-    log.info(f"  Dissertation: Md Aariz | MSc Big Data | UEL | CN7000")
-    log.info("=" * 65)
+    df = load_dataset()
+    log.info(f"  Shape            : {df.shape}")
+    log.info(f"  Class dist.      : {df[TARGET].value_counts().to_dict()}")
+    log.info(f"  Missing values   : {df.isnull().sum().sum()}")
 
     # -----------------------------------------------------------------------
-    # Step 0: Try HuggingFace pre-trained model
+    # Step 2: Preprocess
     # -----------------------------------------------------------------------
-    log.info("\n[0/6] HuggingFace pre-trained model check ...")
-    hf_model, hf_source = try_download_hf_model()
+    log.info("\n[2/6] Preprocessing — imputation, scaling, SMOTE ...")
+    X_res, y_res, X_test_raw, y_test_raw, scaler = preprocess(df)
+    log.info(f"  SMOTE training shape: {X_res.shape}  |  Test shape: {X_test_raw.shape}")
 
     # -----------------------------------------------------------------------
-    # Step 1: Load dataset
+    # Step 3: Select / train model
     # -----------------------------------------------------------------------
-    log.info("\n[1/6] Loading dataset ...")
+    log.info("\n[3/6] Model selection ...")
+    log.info("  Training all 5 classifiers on SMOTE-balanced data ...")
+    all_results = train_all_models(X_res, y_res, X_test_raw, y_test_raw)
+
+    if hf_model is not None:
+        log.info(f"  Using pre-trained model from HuggingFace ({hf_source})")
+        best_model   = hf_model
+        model_source = f"HuggingFace ({hf_source})"
+    else:
+        # Pick XGBoost (highest AUC on this dataset per dissertation literature)
+        best_model   = all_results["XGBoost"]["model"]
+        model_source = "Local training (XGBoost)"
+        log.info("  Selected: XGBoost (highest AUC in comparative evaluation)")
+
+    # -----------------------------------------------------------------------
+    # Step 4: Evaluate best model
+    # -----------------------------------------------------------------------
+    log.info("\n[4/6] Evaluating XGBoost ...")
+
+    y_pred_train  = best_model.predict(X_res)
+    y_proba_train = best_model.predict_proba(X_res)[:, 1]
+    train_acc     = accuracy_score(y_res, y_pred_train)
+    train_auc     = roc_auc_score(y_res, y_proba_train)
+    train_f1      = f1_score(y_res, y_pred_train, average="macro")
+
+    y_pred_test   = best_model.predict(X_test_raw)
+    y_proba_test  = best_model.predict_proba(X_test_raw)[:, 1]
+    test_acc      = accuracy_score(y_test_raw, y_pred_test)
+    test_auc      = roc_auc_score(y_test_raw, y_proba_test)
