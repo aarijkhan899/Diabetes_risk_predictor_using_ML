@@ -1,44 +1,44 @@
-    ax.set_ylim([0.0, 1.05]); ax.set_xlim([0.0, 1.0])
+    metric_labels = ["Train Accuracy", "Test Accuracy", "AUC-ROC", "F1 (macro)"]
+    bar_colors    = ["#1565C0", "#2E7D32", "#E65100", "#6A1B9A"]
+
+    x     = np.arange(len(names))
+    width = 0.18
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+    for i, (key, label, color) in enumerate(zip(metric_keys, metric_labels, bar_colors)):
+        vals  = [comparison[n][key] for n in names]
+        rects = ax.bar(x + i * width, vals, width,
+                       label=label, color=color, alpha=0.85, edgecolor="white")
+        for rect in rects:
+            ax.text(
+                rect.get_x() + rect.get_width() / 2,
+                rect.get_height() + 0.004,
+                f"{rect.get_height():.2f}",
+                ha="center", va="bottom", fontsize=8.5, rotation=90,
+            )
+
+    ax.axhline(0.90, color="red", linestyle="--", lw=1.5, alpha=0.6, label="90 % target")
+    ax.set_ylabel("Score", fontsize=13)
     ax.set_title(
-        "Precision-Recall Curve — XGBoost\nPima Indians Diabetes Dataset  (20 % test holdout)",
-        fontsize=13, fontweight="bold",
+        "Multi-Model Comparison — Pima Indians Diabetes Dataset\n"
+        "All classifiers trained on SMOTE-balanced set; evaluated on 20 % holdout",
+        fontsize=12, fontweight="bold",
     )
-    ax.legend(fontsize=12)
-    ax.grid(True, alpha=0.25)
-    fig.tight_layout()
-    _save(fig, filename)
-
-
-def gen_feature_importance(model, filename: str):
-    importances = model.feature_importances_
-    indices     = np.argsort(importances)[::-1]
-    colors      = plt.cm.Blues(np.linspace(0.4, 0.9, len(FEATURES)))[::-1]
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    bars = ax.bar(
-        range(len(FEATURES)),
-        importances[indices],
-        color=colors, edgecolor="white", linewidth=0.8,
-    )
-    ax.set_xticks(range(len(FEATURES)))
-    ax.set_xticklabels([FEATURES[i] for i in indices], rotation=30, ha="right", fontsize=11)
-    ax.set_ylabel("Feature Importance (XGBoost gain)", fontsize=13)
-    ax.set_title(
-        "Feature Importance — XGBoost\nPima Indians Diabetes Dataset",
-        fontsize=13, fontweight="bold",
-    )
-    for bar, imp in zip(bars, importances[indices]):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.002,
-            f"{imp:.3f}", ha="center", va="bottom", fontsize=9,
-        )
-    ax.set_ylim(0, max(importances) * 1.18)
+    ax.set_xticks(x + width * 1.5)
+    ax.set_xticklabels(names, fontsize=11, rotation=10)
+    ax.legend(fontsize=10, loc="lower right")
+    ax.set_ylim(0, 1.15)
     ax.grid(True, axis="y", alpha=0.25)
     fig.tight_layout()
     _save(fig, filename)
 
 
-def gen_model_comparison(comparison: dict, filename: str):
-    names         = list(comparison.keys())
-    metric_keys   = ["train_accuracy", "test_accuracy", "test_auc", "test_f1"]
+def gen_cv_bar(X_res, y_res, best_model, filename: str):
+    """5-fold stratified CV accuracy bars using the tuned XGBoost."""
+    cv       = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    scores   = cross_val_score(best_model, X_res, y_res, cv=cv, scoring="accuracy")
+    mean_s   = scores.mean()
+    std_s    = scores.std()
+
+    fold_labels = [f"Fold {i+1}" for i in range(5)]
+    colors = ["#1565C0" if s == scores.max() else "#42A5F5" for s in scores]
