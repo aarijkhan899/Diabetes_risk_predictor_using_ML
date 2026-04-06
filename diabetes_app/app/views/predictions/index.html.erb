@@ -1,0 +1,280 @@
+<!-- ============================================================
+     Diabetes Risk Predictor — Input Form
+     ============================================================ -->
+
+<div class="row justify-content-center">
+  <div class="col-lg-9 col-xl-8">
+
+    <!-- Page Header -->
+    <div class="text-center mb-4">
+      <h1 class="display-6 fw-bold text-dark">
+        <i class="bi bi-clipboard2-pulse text-primary me-2"></i>Diabetes Risk Assessment
+      </h1>
+      <p class="lead text-muted">
+        Enter the patient's clinical measurements below.
+        The AI model will predict diabetes risk and explain
+        the key contributing factors.
+      </p>
+    </div>
+
+    <!-- Main Form Card -->
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <span>
+            <i class="bi bi-person-vcard-fill me-2"></i>Patient Clinical Data
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-light"
+            id="fillExampleBtn"
+            title="Fill form with an example high-risk patient"
+          >
+            <i class="bi bi-lightning-fill text-warning me-1"></i>Load Example Patient
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body p-4">
+        <%= form_with url: predict_path, method: :post, local: true, id: "predictionForm" do |f| %>
+
+          <div class="row g-3">
+
+            <!-- Pregnancies -->
+            <div class="col-md-6">
+              <label class="form-label" for="Pregnancies">
+                <%= @feature_labels["Pregnancies"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['Pregnancies'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="Pregnancies"
+                name="Pregnancies"
+                min="<%= @feature_ranges['Pregnancies'][:min] %>"
+                max="<%= @feature_ranges['Pregnancies'][:max] %>"
+                step="<%= @feature_ranges['Pregnancies'][:step] %>"
+                placeholder="<%= @feature_ranges['Pregnancies'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- Glucose -->
+            <div class="col-md-6">
+              <label class="form-label" for="Glucose">
+                <%= @feature_labels["Glucose"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['Glucose'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="Glucose"
+                name="Glucose"
+                min="<%= @feature_ranges['Glucose'][:min] %>"
+                max="<%= @feature_ranges['Glucose'][:max] %>"
+                step="<%= @feature_ranges['Glucose'][:step] %>"
+                placeholder="<%= @feature_ranges['Glucose'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- Blood Pressure -->
+            <div class="col-md-6">
+              <label class="form-label" for="BloodPressure">
+                <%= @feature_labels["BloodPressure"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['BloodPressure'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="BloodPressure"
+                name="BloodPressure"
+                min="<%= @feature_ranges['BloodPressure'][:min] %>"
+                max="<%= @feature_ranges['BloodPressure'][:max] %>"
+                step="<%= @feature_ranges['BloodPressure'][:step] %>"
+                placeholder="<%= @feature_ranges['BloodPressure'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- Skin Thickness -->
+            <div class="col-md-6">
+              <label class="form-label" for="SkinThickness">
+                <%= @feature_labels["SkinThickness"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['SkinThickness'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="SkinThickness"
+                name="SkinThickness"
+                min="<%= @feature_ranges['SkinThickness'][:min] %>"
+                max="<%= @feature_ranges['SkinThickness'][:max] %>"
+                step="<%= @feature_ranges['SkinThickness'][:step] %>"
+                placeholder="<%= @feature_ranges['SkinThickness'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- Insulin -->
+            <div class="col-md-6">
+              <label class="form-label" for="Insulin">
+                <%= @feature_labels["Insulin"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['Insulin'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="Insulin"
+                name="Insulin"
+                min="<%= @feature_ranges['Insulin'][:min] %>"
+                max="<%= @feature_ranges['Insulin'][:max] %>"
+                step="<%= @feature_ranges['Insulin'][:step] %>"
+                placeholder="<%= @feature_ranges['Insulin'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- BMI -->
+            <div class="col-md-6">
+              <label class="form-label" for="BMI">
+                <%= @feature_labels["BMI"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['BMI'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="BMI"
+                name="BMI"
+                min="<%= @feature_ranges['BMI'][:min] %>"
+                max="<%= @feature_ranges['BMI'][:max] %>"
+                step="<%= @feature_ranges['BMI'][:step] %>"
+                placeholder="<%= @feature_ranges['BMI'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- Diabetes Pedigree Function -->
+            <div class="col-md-6">
+              <label class="form-label" for="DiabetesPedigreeFunction">
+                <%= @feature_labels["DiabetesPedigreeFunction"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['DiabetesPedigreeFunction'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="DiabetesPedigreeFunction"
+                name="DiabetesPedigreeFunction"
+                min="<%= @feature_ranges['DiabetesPedigreeFunction'][:min] %>"
+                max="<%= @feature_ranges['DiabetesPedigreeFunction'][:max] %>"
+                step="<%= @feature_ranges['DiabetesPedigreeFunction'][:step] %>"
+                placeholder="<%= @feature_ranges['DiabetesPedigreeFunction'][:placeholder] %>"
+                required
+              />
+            </div>
+
+            <!-- Age -->
+            <div class="col-md-6">
+              <label class="form-label" for="Age">
+                <%= @feature_labels["Age"] %>
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  data-bs-toggle="tooltip"
+                  title="<%= @feature_tooltips['Age'] %>"
+                ></i>
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="Age"
+                name="Age"
+                min="<%= @feature_ranges['Age'][:min] %>"
+                max="<%= @feature_ranges['Age'][:max] %>"
+                step="<%= @feature_ranges['Age'][:step] %>"
+                placeholder="<%= @feature_ranges['Age'][:placeholder] %>"
+                required
+              />
+            </div>
+
+          </div><!-- /.row -->
+
+          <!-- Submit Row -->
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+              <i class="bi bi-cpu-fill me-2"></i>Assess Diabetes Risk
+            </button>
+          </div>
+
+        <% end %>
+      </div><!-- /.card-body -->
+    </div><!-- /.card -->
+
+    <!-- Clinical Disclaimer -->
+    <div class="alert alert-warning d-flex gap-3" role="alert">
+      <div class="fs-4 pt-1"><i class="bi bi-shield-exclamation"></i></div>
+      <div>
+        <strong>Clinical Disclaimer</strong><br />
+        This tool is a research-grade decision-support prototype.
+        It is <strong>not</strong> validated for clinical use and must not replace
+        professional medical judgment. Predictions are based on the
+        <a href="https://archive.ics.uci.edu/dataset/34/diabetes" target="_blank" class="alert-link">
+          Pima Indians Diabetes Dataset
+        </a>
+        (adult females of Pima Indian heritage aged &ge; 21).
+        Results cannot be safely generalised beyond this population without
+        further clinical validation.
+      </div>
+    </div>
+
+  </div><!-- /.col -->
+</div><!-- /.row -->
+
+<!-- Example patient fill-in script -->
+<script>
+  (function () {
+    var example = <%= @example_patient.to_json.html_safe %>;
+
+    document.getElementById("fillExampleBtn").addEventListener("click", function () {
+      Object.keys(example).forEach(function (field) {
+        var el = document.getElementById(field);
+        if (el) el.value = example[field];
+      });
+    });
+
+    // Show spinner on submit
+    document.getElementById("predictionForm").addEventListener("submit", function () {
+      var btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Analysing…';
+    });
+  })();
+</script>

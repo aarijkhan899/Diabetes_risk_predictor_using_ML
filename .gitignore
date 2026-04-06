@@ -1,10 +1,29 @@
+# IDE / OS
+.idea/
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
 # ML artefacts
 ml/models/*.pkl
 ml/models/.hf_cache/
 
 evidence/
 
-# Rails app not tracked in this history (other ~50% of codebase)
-/diabetes_app/
+# Rails — track source; ignore runtime/local DB
+diabetes_app/log/
+diabetes_app/tmp/
+diabetes_app/storage/
+diabetes_app/db/*.sqlite3
+diabetes_app/db/*.sqlite3-*
+
+# Secrets & local
+.env
+.env.*
+diabetes_app/tmp/local_secret.txt
 
 .claude/
