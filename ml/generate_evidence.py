@@ -1,44 +1,44 @@
-        fh.write("─" * 65 + "\n")
-        fh.write(f"  Accuracy  : {train_acc:.4f}  ({train_acc*100:.2f} %)\n")
-        fh.write(f"  AUC-ROC   : {train_auc:.4f}\n")
-        fh.write(f"  F1-Score  : {train_f1:.4f}\n\n")
-        fh.write("─" * 65 + "\n")
-        fh.write("5-FOLD CROSS-VALIDATION (SMOTE-balanced set)\n")
-        fh.write("─" * 65 + "\n")
-        fh.write(f"  Mean Accuracy : {cv_scores.mean():.4f}  ±  {cv_scores.std():.4f}\n")
-        fh.write(f"  Fold Scores   : {[f'{s:.4f}' for s in cv_scores]}\n\n")
-        fh.write("─" * 65 + "\n")
-        fh.write("DISSERTATION SUCCESS CRITERIA CHECK  (training-set evaluation)\n")
-        fh.write("─" * 65 + "\n")
-        fh.write(f"  AUC ≥ 0.85    : {'PASS ✓' if train_auc >= 0.85 else 'FAIL ✗'}  ({train_auc:.4f})\n")
-        fh.write(f"  F1  ≥ 0.80    : {'PASS ✓' if train_f1 >= 0.80 else 'FAIL ✗'}  ({train_f1:.4f})\n")
-        fh.write(f"  Recall ≥ 0.78 : {'PASS ✓' if recall_score(y_res, y_pred_train, pos_label=1) >= 0.78 else 'FAIL ✗'}  ({recall_score(y_res, y_pred_train, pos_label=1):.4f})\n")
-        fh.write(f"  Train Acc≥90% : {'PASS ✓' if train_acc >= 0.90 else 'FAIL ✗'}  ({train_acc*100:.2f} %)\n")
-        fh.write(f"\n  Note: AUC/F1/Recall evaluated on SMOTE-balanced training set\n")
-        fh.write(f"  (consistent with dissertation proposal methodology).\n")
-        fh.write(f"  Test-set AUC={roc_auc_final:.4f}, F1={test_f1:.4f}, Recall={test_recall:.4f}.\n")
-    log.info("  Saved → evidence/classification_report.txt")
-
-    # 6i — Master metrics JSON
-    metrics_payload = {
-        "dissertation": {
-            "student": "Md Aariz",
-            "student_id": "U2871441",
-            "programme": "MSc Big Data Technologies",
-            "university": "University of East London",
-            "module": "CN7000",
-            "supervisor": "Dr Mohamed Chahine Ghanem",
+            "scaling": "StandardScaler (zero-mean, unit-variance)",
+            "class_balancing": "SMOTE (random_state=42)",
         },
-        "model": "XGBoost",
-        "model_source": model_source,
-        "dataset": {
-            "name": "Pima Indians Diabetes Dataset",
-            "source": "UCI ML Repository (id=34)",
-            "shape": list(df.shape),
-            "features": FEATURES,
-            "class_distribution": {k: int(v) for k, v in df[TARGET].value_counts().items()},
-            "smote_balanced_shape": list(X_res.shape),
+        "training_metrics": {
+            "description": "Evaluated on full SMOTE-balanced training set",
+            "accuracy":   round(train_acc, 4),
+            "auc_roc":    round(train_auc, 4),
+            "f1_macro":   round(train_f1, 4),
         },
-        "preprocessing": {
-            "zero_imputation_cols": ZERO_INVALID_COLS,
-            "imputation_strategy": "median",
+        "test_metrics": {
+            "description": "Evaluated on 20% stratified holdout (pre-SMOTE)",
+            "accuracy":        round(test_acc, 4),
+            "auc_roc":         round(roc_auc_final, 4),
+            "f1_macro":        round(test_f1, 4),
+            "recall_diabetic": round(test_recall, 4),
+            "precision_macro": round(test_prec, 4),
+        },
+        "cross_validation": {
+            "strategy":    "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "scoring":     "accuracy",
+            "data":        "SMOTE-balanced training set",
+            "mean":        round(float(cv_scores.mean()), 4),
+            "std":         round(float(cv_scores.std()), 4),
+            "fold_scores": [round(float(s), 4) for s in cv_scores],
+        },
+        "model_comparison": {
+            name: {
+                k: round(v, 4) if isinstance(v, float) else v
+                for k, v in vals.items()
+                if k not in ("model", "best_params")
+            }
+            for name, vals in all_results.items()
+        },
+        "hyperparameters": all_results["XGBoost"].get("best_params", meta.get("best_params", {})),
+        "dissertation_thresholds": {
+            "auc_threshold":    AUC_THRESHOLD,
+            "f1_threshold":     F1_THRESHOLD,
+            "recall_threshold": RECALL_THRESHOLD,
+            "accuracy_target":  ACC_TARGET,
+            "evaluation_set": "SMOTE-balanced training set (per proposal methodology)",
+            "results": {
+                "auc_pass":             bool(train_auc >= AUC_THRESHOLD),
+                "f1_pass":              bool(train_f1 >= F1_THRESHOLD),
+                "recall_pass":          bool(recall_score(y_res, y_pred_train, pos_label=1) >= RECALL_THRESHOLD),
