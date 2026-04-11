@@ -1,10 +1,10 @@
 {
-  "model_name": "XGBoost",
+  "model_name": "RandomForest",
   "auc": 1.0,
   "f1": 1.0,
   "recall": 1.0,
-  "accuracy": 1.0,
-  "precision": 1.0,
+  "accuracy": 0.993506,
+  "precision": 0.981818,
   "features": [
     "Pregnancies",
     "Glucose",
@@ -16,10 +16,15 @@
     "Age"
   ],
   "best_params": {
-    "learning_rate": 0.1,
-    "max_depth": 6,
-    "n_estimators": 200,
-    "subsample": 0.8
+    "max_depth": null,
+    "n_estimators": 200
   },
-  "fallback_used": false
+  "fallback_used": false,
+  "holdout_metrics": {
+    "holdout_auc": 0.999815,
+    "holdout_f1": 0.990826,
+    "holdout_recall": 1.0,
+    "holdout_accuracy": 0.993506,
+    "holdout_precision": 0.981818
+  }
 }

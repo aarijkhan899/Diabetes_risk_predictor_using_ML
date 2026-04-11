@@ -1,0 +1,37 @@
+services:
+  ml_api:
+    image: ${DOCKERHUB_USER:?Set DOCKERHUB_USER to your Docker Hub username}/aariz-ml-api:latest
+    ports:
+      - "5001:5001"
+    environment:
+      ML_API_PORT: "5001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  rails_app:
+    image: ${DOCKERHUB_USER:?Set DOCKERHUB_USER to your Docker Hub username}/aariz-rails-app:latest
+    ports:
+      - "3000:3000"
+    environment:
+      ML_API_URL: http://ml_api:5001
+      RAILS_ENV: production
+      RAILS_SERVE_STATIC_FILES: "true"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-dev_secret_key_base_replace_for_production_minimum_64_chars_hex_0123456789abcdef0123456789abcdef}
+    volumes:
+      - rails_db_data:/app/db
+    depends_on:
+      ml_api:
+        condition: service_healthy
+
+volumes:
+  rails_db_data:

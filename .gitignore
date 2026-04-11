@@ -8,8 +8,7 @@ __pycache__/
 .venv/
 venv/
 
-# ML artefacts
-ml/models/*.pkl
+# ML artefacts (ship trained .pkl in-repo for clone-and-run; keep HuggingFace cache local)
 ml/models/.hf_cache/
 
 evidence/

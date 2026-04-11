@@ -1,0 +1,31 @@
+FROM ruby:3.3.4-slim
+
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    build-essential \
+    libsqlite3-0 \
+    sqlite3 \
+    libyaml-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV RAILS_ENV=production \
+    BUNDLE_DEPLOYMENT=1 \
+    BUNDLE_WITHOUT="development:test"
+
+COPY diabetes_app/Gemfile diabetes_app/Gemfile.lock ./
+RUN bundle config set --local deployment 'true' \
+    && bundle config set --local without 'development:test' \
+    && bundle install --jobs 4 --retry 3
+
+COPY diabetes_app/ ./
+
+ARG SECRET_KEY_BASE=dummy_secret_key_base_for_asset_precompile_only_replace_in_real_deploy_00000000
+ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
+
+RUN bundle exec rails assets:precompile
+
+RUN chmod +x docker-entrypoint.sh
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0", "-p", "3000"]
