@@ -99,9 +99,15 @@ def _shap_for_row(x_row: np.ndarray) -> dict[str, float]:
         explainer = shap.TreeExplainer(clf)
         sv = explainer.shap_values(x_row)
         if isinstance(sv, list):
-            # binary: use positive class
+            # binary classifier: typically [neg_class, pos_class], each shape (n_samples, n_features)
             sv = sv[1] if len(sv) > 1 else sv[0]
-        sv = np.asarray(sv).ravel()
+        sv = np.asarray(sv)
+        # Some sklearn ensembles return (samples, features, outputs)
+        if sv.ndim == 3 and sv.shape[2] >= 2:
+            sv = sv[..., 1]
+        elif sv.ndim == 3:
+            sv = sv[..., -1]
+        sv = sv.reshape(-1)
     except Exception:
         try:
             explainer = shap.Explainer(clf.predict_proba, x_row)
@@ -112,10 +118,17 @@ def _shap_for_row(x_row: np.ndarray) -> dict[str, float]:
         except Exception as ex:
             log.warning("SHAP skipped: %s", ex)
             return {}
-    names = meta.get("features") if isinstance(meta.get("features"), list) else FEATURES
-    if len(sv) != len(names):
-        names = FEATURES[: len(sv)]
-    return {str(names[i]): float(sv[i]) for i in range(len(sv))}
+
+    sv = np.asarray(sv).reshape(-1)
+    names_str = meta.get("features") if isinstance(meta.get("features"), list) else FEATURES
+    names_str = [str(x) for x in names_str]
+    n_feat = len(names_str)
+    if sv.size >= n_feat:
+        sv = sv[:n_feat]
+    else:
+        names_str = names_str[: sv.size]
+
+    return {names_str[i]: float(sv[i]) for i in range(len(names_str))}
 
 
 load_artifacts()
